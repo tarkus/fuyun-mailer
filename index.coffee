@@ -4,29 +4,13 @@ jade   = require 'jade'
 mailer = require 'nodemailer'
 _      = require 'underscore'
 
-config =
-  smtp:
-    service: "Mandrill"
-    auth:
-      user: "tarkus@fuyun.io"
-      pass: "OzWxBGIKRBs7IZrOvsUEWg"
-  view_path: "#{__dirname}/../../views/mailer"
-
+config = {}
 templates = {}
-
-files = fs.readdirSync config.view_path
-
-if files
-  for file in files
-    fullpath = path.join config.view_path, file
-    templates[path.basename(file, '.jade')] = fs.readFileSync(fullpath).toString()
-
-transport = mailer.createTransport 'SMTP', config.smtp
+transport = null
 
 send_function = (req, res, next) ->
   (mail, options, variables, callback) ->
-    defaults =
-      from: "币讯 <noreply@btcxun.com>"
+    defaults = from: config.sender or "<noreply@example.com>"
 
     if typeof variables is 'function'
       callback = variables
@@ -56,7 +40,30 @@ send_function = (req, res, next) ->
           options.html += html
           return transport.sendMail options, callback
 
-exports.connect = ->
+exports.connect = (_config) ->
+
+  ###
+    smtp:
+      service: "Mandrill"
+      auth:
+        user: "tarkus"
+        pass: "password"
+    sender: "Tarkus <hello@tarkus.im>"
+    view_path: "views/mailer"
+  ###
+
+  config = _.extend config, _config
+  throw new Error "view_path must be set" unless config.view_path
+
+  files = fs.readdirSync config.view_path
+
+  if files
+    for file in files
+      fullpath = path.join config.view_path, file
+      templates[path.basename(file, '.jade')] = fs.readFileSync(fullpath).toString()
+
+  transport = mailer.createTransport 'SMTP', config.smtp
+
   (req, res, next) ->
     res.locals.sendmail = send_function req, res, next
     next()
